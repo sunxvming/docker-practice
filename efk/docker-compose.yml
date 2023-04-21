@@ -1,0 +1,84 @@
+version: "3"
+services:
+  web:
+    image: httpd
+    depends_on:
+      - fluentd
+    ports:
+      - "80:80"
+    networks:
+      - my-network
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "localhost:24224"
+        tag: httpd.access
+
+  gf-demos:
+    image: gf-demos
+    ports:
+      - 8000:8000
+    depends_on:
+      - fluentd
+    networks:
+      - my-network
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "localhost:24224"
+        tag: gf-demos.log
+    volumes:
+      - ./data:/var/www/gf-demos/log
+
+  mysql:
+    image: mysql
+    volumes:
+      - mysql-data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+    ports:
+      - 3306:3306
+    networks:
+      - my-network
+
+  fluentd:
+    build: ./fluentd
+    user: root
+    volumes:
+      - ./fluentd/conf:/fluentd/etc
+      - ./data:/data
+    networks:
+      - my-network
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.13.1
+    container_name: elasticsearch
+    environment:
+      - "discovery.type=single-node"
+    expose:
+      - "9200"
+    ports:
+      - "9200:9200"
+    volumes: # Stores elasticsearch data locally on the esdata Docker volume
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - my-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.13.1
+    networks:
+      - my-network
+    ports:
+      - "5601:5601"
+
+networks:
+  my-network:
+    driver: bridge
+
+
+volumes:
+  esdata:
+  mysql-data:
